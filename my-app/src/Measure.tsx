@@ -4,6 +4,9 @@ type Stave = InstanceType<typeof Vex.Flow.Stave>;
 type Voice = InstanceType<typeof Vex.Flow.Voice>;
 type StaveNote = InstanceType<typeof Vex.Flow.StaveNote>;
 
+const NOTE_PADDING = 50;
+const MEASURE_PADDING = 90;
+
 export class Measure {
     private VF = Vex.Flow;
     private stave: Stave | null = null;
@@ -50,7 +53,7 @@ export class Measure {
             console.log(note.getTicks());
         });
 
-        this.stave.setContext(context).draw();
+
         this.renderVoices();
     }
 
@@ -61,6 +64,10 @@ export class Measure {
             this.num_beats = numBeats;
             this.beat_value = beatValue;
         }
+    }
+
+    createId = (id: string): string => {
+        return 'vf-' + id;
     }
 
     setClef = (clef: string): void => {
@@ -77,7 +84,7 @@ export class Measure {
         return duration.endsWith('r');
     }
     addNote = (keys: string[], duration: string, noteId: string): void => {
-        if (this.isRest(duration))  return;
+        if (this.isRest(duration)) return;
         if (!this.voice1) return;
         const VF = Vex.Flow;
         const notes: InstanceType<typeof Vex.Flow.StaveNote>[] = [];
@@ -85,6 +92,7 @@ export class Measure {
         this.voice1.getTickables().forEach(tickable => {
             let staveNote = tickable as StaveNote;
             if (this.matchesNote(staveNote, duration, noteId)) {
+                console.log("Matched StaveNote: " + staveNote);
                 if (staveNote.getNoteType() !== 'r') {
                     const newKeys = staveNote.getKeys();
                     keys.forEach(key => {
@@ -101,7 +109,7 @@ export class Measure {
                 // We just add the note that existed here previously (not changing anything on this beat)
                 notes.push(staveNote as StaveNote);
             }
-            const svgNote = document.getElementById('vf-' + staveNote.getAttributes().id);
+            const svgNote = document.getElementById(this.createId(staveNote.getAttributes().id));
             if (svgNote) svgNote.remove();
         });
 
@@ -111,16 +119,23 @@ export class Measure {
         // However, if the StaveNote you are overriding is at REST, then override
     }
 
-    modifyRest = (duration: string, noteId: string): void => {
-        if (!duration.endsWith('r') || !this.voice1) return;
+    changeBeats = (duration: string, noteId: string): void => {
+        if (!this.voice1) return;
 
         const notes: StaveNote[] = [];
 
-        this.voice1.getTickables().forEach(staveNote => {
-            if (staveNote.getAttributes().id !== noteId) {
+        this.voice1.getTickables().forEach(tickable => {
+            let staveNote = tickable as StaveNote;
+            if (staveNote.getAttributes().id === noteId) {
+                // if we want each note duration to be less, then we'll need to pad with rests
+                if (duration < staveNote.getDuration()) {
+
+                }
+            }
+            else {
                 notes.push(staveNote as StaveNote);
             }
-            const svgNote = document.getElementById('vf-' + staveNote.getAttributes().id);
+            const svgNote = document.getElementById(this.createId(staveNote.getAttributes().id));
             if (svgNote) svgNote.remove();
         });
 
@@ -135,7 +150,15 @@ export class Measure {
 
     renderVoices = (): void => {
         if (this.voice1 && this.stave) {
-            new this.VF.Formatter().format([this.voice1], this.width - 25);
+            const formatter = new this.VF.Formatter();
+            const minWidth = formatter.preCalculateMinTotalWidth([this.voice1]) + NOTE_PADDING;
+            // Clear context to re-draw voices
+            this.context.clear();
+
+            // Resize stave to fit notes if width changed
+            this.stave.setWidth(minWidth + MEASURE_PADDING); // Add some padding
+            this.stave.setContext(this.context).draw();
+            new this.VF.Formatter().format([this.voice1], minWidth);
             this.voice1.draw(this.context, this.stave);
         }
     }
