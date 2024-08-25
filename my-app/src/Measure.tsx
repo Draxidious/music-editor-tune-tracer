@@ -1,21 +1,25 @@
 import Vex from 'vexflow';
 
+type Stave = InstanceType<typeof Vex.Flow.Stave>;
+type Voice = InstanceType<typeof Vex.Flow.Voice>;
+type StaveNote = InstanceType<typeof Vex.Flow.StaveNote>;
+
 export class Measure {
     private VF = Vex.Flow;
-    private stave: InstanceType<typeof Vex.Flow.Stave> | null = null;
+    private stave: Stave | null = null;
     private context: Vex.RenderContext;
     private num_beats: number = 0;
     private beat_value: number = 0;
     private width: number = 0;
     private height: number = 0;
-    private voice1: InstanceType<typeof Vex.Flow.Voice> | null = null;
+    private voice1: Voice | null = null;
 
     constructor(
-        context: Vex.RenderContext, 
-        x: number, 
-        y: number, 
-        width: number, 
-        timeSignature: string = "none", 
+        context: Vex.RenderContext,
+        x: number,
+        y: number,
+        width: number,
+        timeSignature: string = "none",
         clef: string = "none"
     ) {
         this.stave = new this.VF.Stave(x, y, width);
@@ -23,12 +27,12 @@ export class Measure {
         this.height = this.stave.getHeight();
         this.context = context;
         console.log("Context in Measure: " + context);
-        
+
         if (timeSignature !== "none") {
             this.setTimeSignature(timeSignature);
         }
         console.log("Numbeats: " + this.num_beats);
-        
+
         if (clef !== "none") {
             this.setClef(clef);
         }
@@ -41,7 +45,7 @@ export class Measure {
         ];
 
         this.voice1 = new this.VF.Voice({ num_beats: this.num_beats, beat_value: this.beat_value }).addTickables(notes);
-        
+
         notes.forEach(note => {
             console.log(note.getTicks());
         });
@@ -65,37 +69,37 @@ export class Measure {
         }
     }
 
-    addNote = (keys: string[], duration: string, noteId: string): void => {
-        if (!this.voice1) return;
+    private matchesNote = (staveNote: StaveNote, duration: string, noteId: string): boolean => {
+        return staveNote.getAttributes().id === noteId && duration === staveNote.getDuration();
+    }
 
+    private isRest = (duration: string): boolean => {
+        return duration.endsWith('r');
+    }
+    addNote = (keys: string[], duration: string, noteId: string): void => {
+        if (this.isRest(duration))  return;
+        if (!this.voice1) return;
         const VF = Vex.Flow;
         const notes: InstanceType<typeof Vex.Flow.StaveNote>[] = [];
 
         this.voice1.getTickables().forEach(tickable => {
-            let staveNote = tickable as InstanceType<typeof Vex.Flow.StaveNote>; 
-            console.log(staveNote);
-            if (staveNote.getAttributes().id === noteId && duration === staveNote.getDuration()) {
-                console.log("GETS HERE!");
-                if (duration.endsWith('r')) {
-                    // Handle replacing all notes with the desired rest
-                } else {
-                    if (staveNote.getNoteType() !== 'r') {
-                        const newKeys = staveNote.getKeys();
-                        keys.forEach(key => {
-                            // We don't want repeat keys
-                            if (!newKeys.includes(key)) newKeys.push(key);
-                        });
-                        notes.push(new VF.StaveNote({ keys: newKeys, duration }));
-                    }
-                    // If the staveNote is a rest, then we replace it 
-                    else {
-                        console.log("should get here!");
-                        notes.push(new VF.StaveNote({ keys, duration }));
-                    }
+            let staveNote = tickable as StaveNote;
+            if (this.matchesNote(staveNote, duration, noteId)) {
+                if (staveNote.getNoteType() !== 'r') {
+                    const newKeys = staveNote.getKeys();
+                    keys.forEach(key => {
+                        // We don't want repeat keys
+                        if (!newKeys.includes(key)) newKeys.push(key);
+                    });
+                    notes.push(new VF.StaveNote({ keys: newKeys, duration }));
+                }
+                // If the staveNote is a rest, then we replace it 
+                else {
+                    notes.push(new VF.StaveNote({ keys, duration }));
                 }
             } else {
-                console.log("got here for some reason");
-                notes.push(staveNote as InstanceType<typeof Vex.Flow.StaveNote>);
+                // We just add the note that existed here previously (not changing anything on this beat)
+                notes.push(staveNote as StaveNote);
             }
             const svgNote = document.getElementById('vf-' + staveNote.getAttributes().id);
             if (svgNote) svgNote.remove();
@@ -110,11 +114,11 @@ export class Measure {
     modifyRest = (duration: string, noteId: string): void => {
         if (!duration.endsWith('r') || !this.voice1) return;
 
-        const notes: InstanceType<typeof Vex.Flow.StaveNote>[] = [];
-        
+        const notes: StaveNote[] = [];
+
         this.voice1.getTickables().forEach(staveNote => {
             if (staveNote.getAttributes().id !== noteId) {
-                notes.push(staveNote as InstanceType<typeof Vex.Flow.StaveNote>);
+                notes.push(staveNote as StaveNote);
             }
             const svgNote = document.getElementById('vf-' + staveNote.getAttributes().id);
             if (svgNote) svgNote.remove();

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Vex, { Formatter } from 'vexflow';
 import { Score } from './Score';
 
@@ -6,13 +6,39 @@ const TestObjectsEditor: React.FC = () => {
     const notationRef = useRef<HTMLDivElement>(null);
     const score = useRef<Score | null>(null);
 
+    // State for each input field
+    const [keys, setKeys] = useState('');
+    const [duration, setDuration] = useState('');
+    const [measureIndex, setMeasureIndex] = useState<number>(0);
+    const [noteId, setNoteId] = useState('');
+    // Handlers for input changes
+    const handleKeysChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setKeys(event.target.value);
+    };
+
+    const handleDurationChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setDuration(event.target.value);
+    };
+
+    const handleMeasureIndexChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        // Ensure that measureIndex is an integer or empty
+        if (value === '' || /^[0-9]+$/.test(value)) {
+            setMeasureIndex(parseInt(value, 10));
+        }
+    };
+
+    const handleNoteIdChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setNoteId(event.target.value);
+    };
+
     const addNote = () => {
         if (score.current) {
             score.current.addNoteInMeasure(
-                /*measure index*/ 0, 
-                /*keys*/ ["C/4", "D/4"], 
-                /*duration*/ "q", 
-                /*noteId*/ "auto1037"
+                /*measure index*/ measureIndex,
+                /*keys*/keys.split(','),
+                /*duration*/ duration,
+                /*noteId*/ noteId
             );
         }
     };
@@ -25,14 +51,14 @@ const TestObjectsEditor: React.FC = () => {
         };
 
         const renderNotation = () => {
-             // It seems that the measure width is separate from how
+            // It seems that the measure width is separate from how
             // the formatter width works with voices. Subtracting 25 at when formatting helps the
             // notes fit better with a smaller staff. 
             if (notationRef.current) {
                 score.current = new Score(
-                    notationRef.current, 
-                    /*defaultx*/ 10, 
-                    /*defaulty*/ 40, 
+                    notationRef.current,
+                    /*defaultx*/ 10,
+                    /*defaulty*/ 40,
                     /*Measure Width*/ 325
                 );
             }
@@ -46,8 +72,42 @@ const TestObjectsEditor: React.FC = () => {
         <div>
             <div ref={notationRef}></div>
             <div>
-                <button onClick={addNote}>Add two notes on second beat</button>
+                <label htmlFor="keys">Insert keys (comma-separated):</label>
+                <input
+                    type="text"
+                    id="keys"
+                    value={keys}
+                    onChange={handleKeysChange}
+                />
             </div>
+            <div>
+                <label htmlFor="duration">Insert duration:</label>
+                <input
+                    type="text"
+                    id="duration"
+                    value={duration}
+                    onChange={handleDurationChange}
+                />
+            </div>
+            <div>
+                <label htmlFor="measureIndex">Insert measure index:</label>
+                <input
+                    type="text"
+                    id="measureIndex"
+                    value={measureIndex.toString()}
+                    onChange={handleMeasureIndexChange}
+                />
+            </div>
+            <div>
+                <label htmlFor="noteId">Insert note id:</label>
+                <input
+                    type="text"
+                    id="noteId"
+                    value={noteId}
+                    onChange={handleNoteIdChange}
+                />
+            </div>
+            <button onClick={addNote}>Add note!</button>
         </div>
     );
 };
