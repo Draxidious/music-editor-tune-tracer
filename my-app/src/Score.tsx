@@ -27,4 +27,12 @@ export class Score {
     ): void => {
         this.measures[measureIndex].addNote(keys, duration, noteId);
     }
+
+    modifyDurationInMeasure = (
+        measureIndex: number, 
+        duration: string, 
+        noteId: string
+    ): void => {
+        this.measures[measureIndex].modifyDuration(duration, noteId);
+    }
 }

@@ -43,6 +43,16 @@ const TestObjectsEditor: React.FC = () => {
         }
     };
 
+    const modifyDuration= () => {
+        if (score.current) {
+            score.current.modifyDurationInMeasure(
+                /*measure index*/ measureIndex,
+                /*duration*/ duration,
+                /*noteId*/ noteId
+            );
+        }
+    };
+
     useEffect(() => {
         const clearSVG = () => {
             if (notationRef.current) {
@@ -108,6 +118,7 @@ const TestObjectsEditor: React.FC = () => {
                 />
             </div>
             <button onClick={addNote}>Add note!</button>
+            <button onClick={modifyDuration}>Change duration of specified element</button>
         </div>
     );
 };
