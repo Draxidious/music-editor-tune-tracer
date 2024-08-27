@@ -1,8 +1,7 @@
-import Vex from 'vexflow';
+import {Vex,Stave, StaveNote, Voice} from 'vexflow';
 
-type Stave = InstanceType<typeof Vex.Flow.Stave>;
-type Voice = InstanceType<typeof Vex.Flow.Voice>;
-type StaveNote = InstanceType<typeof Vex.Flow.StaveNote>;
+
+type RenderContext = InstanceType<typeof Vex.Flow.RenderContext>;
 
 const NOTE_PADDING = 50;
 const MEASURE_PADDING = 90;
@@ -11,31 +10,41 @@ const HAT_REST_LOC = "d/5";
 
 export class Measure {
     private VF = Vex.Flow;
-    private stave: Stave | null = null;
-    private context: Vex.RenderContext;
+    private stave: Stave;
+    private context: RenderContext;
     private num_beats: number = 0;
     private beat_value: number = 0;
     private total_ticks: number = 0;
     private width: number = 0;
     private height: number = 0;
-    private voice1: Voice | null = null;
+    private notes: StaveNote[] = [];
+    private voice1: Voice;
+    private voice2: Voice | null = null;
+    private x: number = 0;
+    private y: number = 0;
+    private timeSignature: string = "";
 
     constructor(
-        context: Vex.RenderContext,
+        context: RenderContext,
         x: number,
         y: number,
         width: number,
         timeSignature: string = "none",
-        clef: string = "none"
+        clef: string = "none",
+        renderTimeSignature = false
     ) {
         this.stave = new this.VF.Stave(x, y, width);
         this.width = width;
         this.height = this.stave.getHeight();
         this.context = context;
+        this.x = x;
+        this.y = y;
+        this.timeSignature = timeSignature;
+
         console.log("Context in Measure: " + context);
 
         if (timeSignature !== "none") {
-            this.processTimeSignature(timeSignature);
+            this.processTimeSignature(timeSignature, renderTimeSignature);
         }
         console.log("Numbeats: " + this.num_beats);
 
@@ -43,26 +52,56 @@ export class Measure {
             this.setClef(clef);
         }
 
-        const notes = [
+        this.notes = [
             new this.VF.StaveNote({ keys: [REST_LOC], duration: "qr" }),
             new this.VF.StaveNote({ keys: [REST_LOC], duration: "qr" }),
             new this.VF.StaveNote({ keys: [REST_LOC], duration: "qr" }),
             new this.VF.StaveNote({ keys: [REST_LOC], duration: "qr" })
         ];
 
-        this.voice1 = new this.VF.Voice({ num_beats: this.num_beats, beat_value: this.beat_value }).addTickables(notes);
+        this.voice1 = new this.VF.Voice({ num_beats: this.num_beats, beat_value: this.beat_value }).addTickables(this.notes);
 
-        notes.forEach(note => {
+        this.notes.forEach(note => {
             console.log(note.getTicks());
         });
-
-
-        this.renderVoices();
+    }
+    getX = (): number => {
+        return this.x;
+    }
+    getY = (): number => {
+        return this.y;
     }
 
-    processTimeSignature = (timeSignature: string): void => {
+    getTimeSignature = (): string => {
+        return this.timeSignature;
+    }
+
+    getVoice1 = (): Voice => {
+        return this.voice1;
+    }
+
+    getVoice2 = (): Voice | null => {
+        return this.voice2;
+    }
+
+    getStave = (): Stave => {
+        return this.stave;
+    }
+
+    getNotes = (): StaveNote[] => {
+        return this.notes;
+    }
+
+    getCurrentBeats = (): number => {
+        return this.num_beats;
+    }
+
+    processTimeSignature = (timeSignature: string, renderTimeSig: boolean): void => {
         if (this.stave) {
-            this.stave.setTimeSignature(timeSignature);
+            if(renderTimeSig)
+            {
+                this.stave.setTimeSignature(timeSignature);
+            }
             const [numBeats, beatValue] = timeSignature.split("/").map(Number);
             this.num_beats = numBeats;
             this.beat_value = beatValue;
@@ -119,7 +158,6 @@ export class Measure {
         });
 
         this.voice1 = new VF.Voice({ num_beats: this.num_beats, beat_value: this.beat_value }).addTickables(notes);
-        this.renderVoices();
         // When adding a note you never want to override another note
         // However, if the StaveNote you are overriding is at REST, then override
     }
@@ -154,6 +192,23 @@ export class Measure {
                         notes.push(new VF.StaveNote({ keys: [REST_LOC], duration: duration + "r"}))
                     }
                 }
+                // Its greater than current duration... this is a bit complicated
+                else
+                {
+                    // Bigger durations should "eat" subsequent notes and rests in the measure
+                    // This applies to notes both in the current measure, and after
+                    // The goal is to satisfy the desired duration placement over preserving existing notes
+
+                    // It doesn't matter whether you increase the duration of a rest or note, the behavior should be the same:
+                    // Add as large of a duration (in other words, as many ticks) as you can to the current measue
+                    // Any overflow should follow the same logic with another measure and a new duration. 
+                    // If we changed a note, the other measure should add that note with a slur
+                    // If we changed a rest, the other measure should add the necessary rests to fill desired duration
+                    
+                    // With dots, this logic still 
+
+
+                }
             }
             else {
                 // We want ticks here, not instrinsic ticks, as we need to see if duration fits
@@ -164,26 +219,8 @@ export class Measure {
             if (svgNote) svgNote.remove();
         });
         this.voice1 = new VF.Voice({ num_beats: this.num_beats, beat_value: this.beat_value }).addTickables(notes);
-        this.renderVoices();
         // Ensure to check that the total ticks match
     }
 
-    getCurrentBeats = (): number => {
-        return this.num_beats;
-    }
-
-    renderVoices = (): void => {
-        if (this.voice1 && this.stave) {
-            const formatter = new this.VF.Formatter();
-            const minWidth = formatter.preCalculateMinTotalWidth([this.voice1]) + NOTE_PADDING;
-            // Clear context to re-draw voices
-            this.context.clear();
-
-            // Resize stave to fit notes if width changed
-            this.stave.setWidth(minWidth + MEASURE_PADDING); // Add some padding
-            this.stave.setContext(this.context).draw();
-            new this.VF.Formatter().format([this.voice1], minWidth);
-            this.voice1.draw(this.context, this.stave);
-        }
-    }
+    
 }

@@ -23,8 +23,12 @@ const TestObjectsEditor: React.FC = () => {
     const handleMeasureIndexChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value;
         // Ensure that measureIndex is an integer or empty
-        if (value === '' || /^[0-9]+$/.test(value)) {
+        if (/^[0-9]+$/.test(value)) {
             setMeasureIndex(parseInt(value, 10));
+        }
+        else
+        {
+            setMeasureIndex(0);
         }
     };
 
@@ -40,6 +44,12 @@ const TestObjectsEditor: React.FC = () => {
                 /*duration*/ duration,
                 /*noteId*/ noteId
             );
+        }
+    };
+
+    const addMeasureToEnd = () => {
+        if (score.current) {
+            score.current.addMeasure();
         }
     };
 
@@ -119,6 +129,7 @@ const TestObjectsEditor: React.FC = () => {
             </div>
             <button onClick={addNote}>Add note!</button>
             <button onClick={modifyDuration}>Change duration of specified element</button>
+            <button onClick={addMeasureToEnd}>Add a measure to the end</button>
         </div>
     );
 };
